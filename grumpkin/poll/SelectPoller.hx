@@ -1,4 +1,4 @@
-package grumpkin;
+package grumpkin.poll;
 
 import sys.net.Socket;
 

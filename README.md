@@ -28,7 +28,7 @@ By default, select is used to check for socket events. To use an alternative
 poller:
 
     var maxConnections = 1024;
-    var poller = new grumpkin.PollPoller(maxConnections);
+    var poller = new grumpkin.poll.PollPoller(maxConnections);
     server.run(host, port, poller);
 
 Additional features

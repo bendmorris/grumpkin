@@ -15,6 +15,7 @@ import cpp.vm.Deque;
 import cpp.vm.Thread;
 import cpp.vm.Mutex;
 #end
+import grumpkin.poll.IPoller;
 
 
 typedef ClientInfo<Client> = {
@@ -88,7 +89,7 @@ class AsyncServer<Client, Message>
 		{
 			// select is cross-platform; on other platforms, a more efficient
 			// poller should be used
-			this.poller = new SelectPoller();
+			this.poller = new grumpkin.poll.SelectPoller();
 		}
 		else this.poller = poller;
 		this.poller.sockets = sockets;
