@@ -54,7 +54,7 @@ class AsyncServer<Client, Message>
 	public function new()
 	{
 		maxConnections = 1024;
-		nworkers = 10;
+		nworkers = 8;
 		messageHeaderSize = 1;
 		listen = 10;
 		connectWait = 0.01;
@@ -147,7 +147,33 @@ class AsyncServer<Client, Message>
 				if (nextWorker >= nworkers) nextWorker %= nworkers;
 				workerMutex.release();
 				worker.sendMessage(doWork.bind(f, onSuccess, onError));
-			} else f();
+			} else doWork(f, onSuccess, onError);
+		}
+		catch (e:Dynamic)
+		{
+			logError(e);
+			workerMutex.release();
+		}
+	}
+
+	/**
+	 * Call function f in the next available worker thread; when finished, call
+	 * onSuccess with the return value in the main thread. If nworkers = 0, f
+	 * will be called in the same thread (immediately) instead.
+	 */
+	public function defer(f:Void->Dynamic, ?onSuccess:Dynamic->Void, ?onError:Void->Void)
+	{
+		try
+		{
+			if (nworkers > 0)
+			{
+				// assign the next worker thread to run this function
+				workerMutex.acquire();
+				var worker = workers[nextWorker++];
+				if (nextWorker >= nworkers) nextWorker %= nworkers;
+				workerMutex.release();
+				worker.sendMessage(doDeferred.bind(f, onSuccess, onError));
+			} else doDeferred(f, onSuccess, onError);
 		}
 		catch (e:Dynamic)
 		{
@@ -307,7 +333,21 @@ class AsyncServer<Client, Message>
 			f();
 			if (onSuccess != null) callLater(onSuccess, 0);
 		}
-		catch(e:Dynamic)
+		catch (e:Dynamic)
+		{
+			logError(e);
+			if (onError != null) callLater(onError, 0);
+		}
+	}
+
+	function doDeferred(f:Void->Dynamic, onSuccess:Dynamic->Void, onError:Void->Void)
+	{
+		try
+		{
+			var result = f();
+			if (onSuccess != null) callLater(onSuccess.bind(result), 0);
+		}
+		catch (e:Dynamic)
 		{
 			logError(e);
 			if (onError != null) callLater(onError, 0);

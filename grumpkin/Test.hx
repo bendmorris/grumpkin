@@ -16,6 +16,7 @@ class Test extends AsyncServer<String, String>
 			server.callLater(server.shutdown, 10);
 			loopTask.stop();
 		}, 5);
+		server.callLater(server.defer.bind(function() { trace("Returning 2"); return 2; }, function(n:Int) trace("The answer is " + n)), 0);
 		server.run("localhost", 12345);
 	}
 
