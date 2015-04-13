@@ -82,6 +82,10 @@ class AsyncServer<Client, Message>
 		}
 	}
 
+	/**
+	 * Start the server, listening on host:port, optionally with a custom
+	 * polling mechanism.
+	 */
 	public function run(host, port, ?poller:IPoller)
 	{
 		// set up poller
@@ -127,6 +131,10 @@ class AsyncServer<Client, Message>
 		}
 	}
 
+	/**
+	 * Call function f in the next available worker thread. If nworkers = 0,
+	 * f will be called in the same thread (immediately) instead.
+	 */
 	public function work(f:Void->Void)
 	{
 		try
@@ -148,40 +156,62 @@ class AsyncServer<Client, Message>
 		}
 	}
 
+	/**
+	 * Call f every `seconds` seconds, optionally stopping after `maxLoops`
+	 * calls.
+	 */
 	public function loopingCall(f:Void->Void, seconds:Float, ?maxLoops:Int=0):LoopingCall
 	{
 		return cast addUpdater(new LoopingCall(f, seconds, maxLoops));
 	}
 
+	/**
+	 * Wait `seconds` seconds, then call f.
+	 */
 	public function callLater(f:Void->Void, seconds:Float):DelayedCall
 	{
 		return cast addUpdater(new DelayedCall(f, seconds));
 	}
 
+	/**
+	 * Generic method to add an implementer of the IUpdater interface to the
+	 * server's update loop.
+	 */
 	public function addUpdater(updater:IUpdater):IUpdater
 	{
 		updaters.push(updater);
 		return updater;
 	}
 
+	/**
+	 * Create a new ClientInfo for a connected client.
+	 */
 	public function addClient(s:Socket)
 	{
 		s.setBlocking(false);
 
 		if (sockets.length < maxConnections + 1)
 		{
-			var client:ClientInfo<Client> = {
-				client: clientConnected(s),
+			var client = clientConnected(s);
+			if (client == null)
+				return refuseClient(s);
+
+			var clientInfo:ClientInfo<Client> = {
+				client: client,
 				sock: s,
 				buf: Bytes.alloc(initialBufferSize),
 				bufpos: 0,
 			};
-			s.custom = client;
+			s.custom = clientInfo;
 			addSocket(s);
 		}
 		else refuseClient(s);
 	}
 
+	/**
+	 * Send data to a connected socket. If this method fails, disconnect the
+	 * client.
+	 */
 	public function sendData(s:Socket, data:String)
 	{
 		try
@@ -195,18 +225,31 @@ class AsyncServer<Client, Message>
 		}
 	}
 
+	/**
+	 * Disconnect the client using this socket.
+	 */
 	public function stopClient(s:Socket)
 	{
 		var clientInfo:ClientInfo<Client> = s.custom;
 		try s.shutdown(true, true) catch( e : Dynamic ) { };
-		doClientDisconnected(s, clientInfo.client);
+		try s.close() catch (e:Dynamic) {};
+		removeSocket(s);
+		clientDisconnected(clientInfo.client);
 	}
 
+	/**
+	 * Shut down the server. This is a soft shutdown; the server will finish
+	 * the current iteration of the main loop before stopping.
+	 */
 	public function shutdown()
 	{
 		running = false;
 	}
 
+	/**
+	 * When a client socket has data to be read, check for complete messages
+	 * and process them.
+	 */
 	function readClientData(c:ClientInfo<Client>)
 	{
 		var available = c.buf.length - c.bufpos;
@@ -243,13 +286,6 @@ class AsyncServer<Client, Message>
 		c.bufpos = len;
 	}
 
-	function doClientDisconnected(s:Socket, c:Client)
-	{
-		try s.close() catch (e:Dynamic) {};
-		removeSocket(s);
-		clientDisconnected(c);
-	}
-
 	function runWorker()
 	{
 		while (true)
@@ -260,14 +296,6 @@ class AsyncServer<Client, Message>
 			try
 			{
 				f();
-			}
-			catch (e:Dynamic)
-			{
-				logError(e);
-			}
-			try
-			{
-				afterEvent();
 			}
 			catch (e:Dynamic)
 			{
@@ -347,6 +375,9 @@ class AsyncServer<Client, Message>
 
 	// --- CUSTOMIZABLE API ---
 
+	/**
+	 * Called when an error is encountered.
+	 */
 	public dynamic function onError(e:Dynamic, stack)
 	{
 		var estr = try Std.string(e) catch( e2 : Dynamic ) "???" + try "["+Std.string(e2)+"]" catch( e : Dynamic ) "";
@@ -354,11 +385,26 @@ class AsyncServer<Client, Message>
 		errorOutput.flush();
 	}
 
+	/**
+	 * Called when a new client is connected. Should return a Client instance
+	 * if the new client can be created; if this method returns null, the
+	 * connection will be refused.
+	 */
 	public dynamic function clientConnected(s:Socket):Client
 		return null;
 
+	/**
+	 * Called when a client is disconnected.
+	 */
 	public dynamic function clientDisconnected(c:Client) {}
 
+	/**
+	 * Called when data is ready to be read; this method should read from the
+	 * provided buffer starting at position `pos`. If a complete message has
+	 * been received, return the message and its length in bytes, and
+	 * clientMessage will be called on the resulting message. If msg is null,
+	 * the data will remain in the buffer until more is received.
+	 */
 	public dynamic function readClientMessage(c:Client, buf:Bytes, pos:Int, len:Int):{msg:Message, bytes:Int}
 	{
 		return {
@@ -367,7 +413,8 @@ class AsyncServer<Client, Message>
 		};
 	}
 
-	public dynamic function clientMessage(c:Client, msg:Message ) {}
-
-	public dynamic function afterEvent() {}
+	/**
+	 * Process a complete message from the client.
+	 */
+	public dynamic function clientMessage(c:Client, msg:Message) {}
 }
