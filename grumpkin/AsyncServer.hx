@@ -135,7 +135,7 @@ class AsyncServer<Client, Message>
 	 * Call function f in the next available worker thread. If nworkers = 0,
 	 * f will be called in the same thread (immediately) instead.
 	 */
-	public function work(f:Void->Void)
+	public function work(f:Void->Void, ?onSuccess:Void->Void, ?onError:Void->Void)
 	{
 		try
 		{
@@ -146,7 +146,7 @@ class AsyncServer<Client, Message>
 				var worker = workers[nextWorker++];
 				if (nextWorker >= nworkers) nextWorker %= nworkers;
 				workerMutex.release();
-				worker.sendMessage(f);
+				worker.sendMessage(doWork.bind(f, onSuccess, onError));
 			} else f();
 		}
 		catch (e:Dynamic)
@@ -214,15 +214,7 @@ class AsyncServer<Client, Message>
 	 */
 	public function sendData(s:Socket, data:String)
 	{
-		try
-		{
-			work(s.write.bind(data));
-		}
-		catch (e:Dynamic)
-		{
-			logError(e);
-			stopClient(s);
-		}
+		work(s.write.bind(data), null, stopClient.bind(s));
 	}
 
 	/**
@@ -231,8 +223,8 @@ class AsyncServer<Client, Message>
 	public function stopClient(s:Socket)
 	{
 		var clientInfo:ClientInfo<Client> = s.custom;
-		try s.shutdown(true, true) catch( e : Dynamic ) { };
-		try s.close() catch (e:Dynamic) {};
+		try s.shutdown(true, true) catch(e:Dynamic) {}
+		try s.close() catch (e:Dynamic) {}
 		removeSocket(s);
 		clientDisconnected(clientInfo.client);
 	}
@@ -305,6 +297,20 @@ class AsyncServer<Client, Message>
 			var elapsed = haxe.Timer.stamp() - startTime;
 			if (elapsed < 1 / maxWorkCyclesPerSecond)
 				Sys.sleep(1 / maxWorkCyclesPerSecond - elapsed);
+		}
+	}
+
+	function doWork(f:Void->Void, onSuccess:Void->Void, onError:Void->Void)
+	{
+		try
+		{
+			f();
+			if (onSuccess != null) callLater(onSuccess, 0);
+		}
+		catch(e:Dynamic)
+		{
+			logError(e);
+			if (onError != null) callLater(onError, 0);
 		}
 	}
 
