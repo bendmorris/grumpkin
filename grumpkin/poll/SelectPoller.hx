@@ -5,9 +5,15 @@ import sys.net.Socket;
 
 class SelectPoller implements IPoller
 {
-	public var sockets:Array<Socket>;
+	public var socketCount(get, never):Int;
+	inline function get_socketCount() return sockets.length;
 
-	public function new() {}
+	var sockets:Array<Socket>;
+
+	public function new()
+	{
+		sockets = [];
+	}
 
 	public function poll():Null<Array<Socket>>
 	{
@@ -16,6 +22,13 @@ class SelectPoller implements IPoller
 		return ready.read.concat(ready.others);
 	}
 
-	public function addSocket(socket:Socket) {}
-	public function removeSocket(socket:Socket) {}
+	public function addSocket(socket:Socket)
+	{
+		sockets.push(socket);
+	}
+
+	public function removeSocket(socket:Socket)
+	{
+		sockets.remove(socket);
+	}
 }

@@ -7,7 +7,7 @@ import sys.net.Socket;
  **/
 interface IPoller
 {
-	public var sockets:Array<Socket>;
+	public var socketCount(get, never):Int;
 
 	public function poll():Null<Array<Socket>>;
 	public function addSocket(socket:Socket):Void;

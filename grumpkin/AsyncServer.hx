@@ -40,7 +40,6 @@ class AsyncServer<Client, Message>
 	public var maxUpdatesPerSecond:Float;
 	public var maxWorkCyclesPerSecond:Float;
 
-	var sockets:Array<Socket>;
 	var serverSocket:Socket;
 	var poller:IPoller;
 
@@ -63,8 +62,6 @@ class AsyncServer<Client, Message>
 		maxBufferSize = (1 << 16);
 		maxUpdatesPerSecond = 1200;
 		maxWorkCyclesPerSecond = 60;
-
-		sockets = new Array();
 
 		updaters = new Deque();
 		recycledUpdaters = new Deque();
@@ -96,7 +93,6 @@ class AsyncServer<Client, Message>
 			this.poller = new grumpkin.poll.SelectPoller();
 		}
 		else this.poller = poller;
-		this.poller.sockets = sockets;
 
 		// socket to listen for new connections
 		serverSocket = new Socket();
@@ -216,7 +212,7 @@ class AsyncServer<Client, Message>
 	{
 		s.setBlocking(false);
 
-		if (sockets.length < maxConnections + 1)
+		if (poller.socketCount < maxConnections + 1)
 		{
 			var client = clientConnected(s);
 			if (client == null)
@@ -409,13 +405,11 @@ class AsyncServer<Client, Message>
 
 	function addSocket(socket:Socket)
 	{
-		sockets.push(socket);
 		poller.addSocket(socket);
 	}
 
 	function removeSocket(socket:Socket)
 	{
-		sockets.remove(socket);
 		poller.removeSocket(socket);
 	}
 
