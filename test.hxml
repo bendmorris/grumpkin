@@ -1,4 +1,9 @@
 -main grumpkin.Test
 -debug
 -neko test.n
-#-cpp test
+
+--next
+
+-main grumpkin.Test
+-debug
+-cpp build
