@@ -377,7 +377,12 @@ class AsyncServer<Client, Message>
 					if (s == serverSocket)
 					{
 						// new connection
-						addClient(serverSocket.accept());
+						try
+						{
+							var sock = serverSocket.accept();
+							addClient(sock);
+						}
+						catch (e:Dynamic) {}
 					}
 					else
 					{
