@@ -1,3 +1,4 @@
 -main grumpkin.Test
+-debug
 -neko test.n
 #-cpp test

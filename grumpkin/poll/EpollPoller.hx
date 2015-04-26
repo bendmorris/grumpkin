@@ -10,6 +10,7 @@ import cpp.net.Epoll;
 
 class EpollPoller implements IPoller
 {
+	public var maxConnections:Int;
 	public var socketCount(get, never):Int;
 	inline function get_socketCount() return _socketCount;
 
@@ -18,8 +19,9 @@ class EpollPoller implements IPoller
 	var _maxEvents:Int;
 	var _socketCount:Int;
 
-	public function new(maxEvents:Int)
+	public function new(maxConnections:Int, maxEvents:Int)
 	{
+		this.maxConnections = maxConnections;
 		sockets = new Map();
 		_epoll = new Epoll();
 		_maxEvents = maxEvents;
@@ -32,14 +34,19 @@ class EpollPoller implements IPoller
 		else return null;
 	}
 
-	public function addSocket(socket:Socket)
+	public function addSocket(socket:Socket):Bool
 	{
+		if (socketCount >= maxConnections)
+			return false;
+
 		if (!sockets.exists(socket))
 		{
 			_epoll.register(socket);
 			sockets[socket] = true;
 			++_socketCount;
+			return true;
 		}
+		return false;
 	}
 
 	public function removeSocket(socket:Socket)

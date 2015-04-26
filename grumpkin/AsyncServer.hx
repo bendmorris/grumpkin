@@ -29,10 +29,10 @@ class AsyncServer<Client, Message>
 {
 	public var running:Bool = false;
 
-	public var maxConnections:Int;
 	public var listen:Int;
 	public var nworkers:Int;
 	public var connectWait:Float;
+	public var maxAccepts:Int;
 	public var errorOutput:haxe.io.Output;
 	public var initialBufferSize:Int;
 	public var maxBufferSize:Int;
@@ -52,11 +52,11 @@ class AsyncServer<Client, Message>
 
 	public function new()
 	{
-		maxConnections = 1024;
 		nworkers = 8;
 		messageHeaderSize = 1;
 		listen = 10;
 		connectWait = 0.01;
+		maxAccepts = 64;
 		errorOutput = Sys.stderr();
 		initialBufferSize = (1 << 10);
 		maxBufferSize = (1 << 16);
@@ -90,7 +90,7 @@ class AsyncServer<Client, Message>
 		{
 			// select is cross-platform; on other platforms, a more efficient
 			// poller should be used
-			this.poller = new grumpkin.poll.SelectPoller();
+			this.poller = new grumpkin.poll.SelectPoller(1024);
 		}
 		else this.poller = poller;
 
@@ -212,7 +212,7 @@ class AsyncServer<Client, Message>
 	{
 		s.setBlocking(false);
 
-		if (poller.socketCount < maxConnections + 1)
+		if (addSocket(s))
 		{
 			var client = clientConnected(s);
 			if (client == null)
@@ -225,9 +225,7 @@ class AsyncServer<Client, Message>
 				bufpos: 0,
 			};
 			s.custom = clientInfo;
-			addSocket(s);
 		}
-		else refuseClient(s);
 	}
 
 	/**
@@ -359,6 +357,7 @@ class AsyncServer<Client, Message>
 	function refuseClient(s:Socket)
 	{
 		// we have reached maximum number of active clients
+		removeSocket(s);
 		s.close();
 	}
 
@@ -376,13 +375,22 @@ class AsyncServer<Client, Message>
 
 					if (s == serverSocket)
 					{
-						// new connection
-						try
+						for (i in 0 ... maxAccepts)
 						{
-							var sock = serverSocket.accept();
-							addClient(sock);
+							if (poller.socketCount >= poller.maxConnections)
+								break;
+
+							// check for a new connection
+							try
+							{
+								var sock = serverSocket.accept();
+								addClient(sock);
+							}
+							catch (e:Dynamic)
+							{
+								break;
+							}
 						}
-						catch (e:Dynamic) {}
 					}
 					else
 					{
@@ -410,9 +418,9 @@ class AsyncServer<Client, Message>
 		}
 	}
 
-	function addSocket(socket:Socket)
+	function addSocket(socket:Socket):Bool
 	{
-		poller.addSocket(socket);
+		return poller.addSocket(socket);
 	}
 
 	function removeSocket(socket:Socket)

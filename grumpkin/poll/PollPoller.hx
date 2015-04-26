@@ -10,6 +10,7 @@ import cpp.net.Poll;
 
 class PollPoller implements IPoller
 {
+	public var maxConnections:Int;
 	public var socketCount(get, never):Int;
 	inline function get_socketCount() return sockets.length;
 
@@ -18,6 +19,7 @@ class PollPoller implements IPoller
 
 	public function new(maxConnections:Int)
 	{
+		this.maxConnections = maxConnections;
 		sockets = [];
 		_poll = new Poll(maxConnections);
 	}
@@ -27,9 +29,12 @@ class PollPoller implements IPoller
 		return _poll.poll(sockets, 0);
 	}
 
-	public function addSocket(socket:Socket)
+	public function addSocket(socket:Socket):Bool
 	{
+		if (socketCount >= maxConnections)
+			return false;
 		sockets.push(socket);
+		return true;
 	}
 
 	public function removeSocket(socket:Socket)
