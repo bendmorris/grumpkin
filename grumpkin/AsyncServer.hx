@@ -372,6 +372,8 @@ class AsyncServer<Client, Message>
 			{
 				for (s in ready)
 				{
+					if (s == null) continue;
+
 					if (s == serverSocket)
 					{
 						// new connection
@@ -423,6 +425,9 @@ class AsyncServer<Client, Message>
 		var estr = try Std.string(e) catch( e2 : Dynamic ) "???" + try "["+Std.string(e2)+"]" catch( e : Dynamic ) "";
 		errorOutput.writeString( estr + "\n" + haxe.CallStack.toString(stack) );
 		errorOutput.flush();
+#if debug
+		throw e;
+#end
 	}
 
 	/**
