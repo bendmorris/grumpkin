@@ -1,4 +1,4 @@
-package grumpkin.poll;
+package grumpkin.reactor;
 
 import sys.net.Socket;
 #if neko
@@ -8,11 +8,9 @@ import cpp.net.Epoll;
 #end
 
 
-class EpollPoller implements IPoller
+class EpollReactor extends Reactor
 {
-	public var maxConnections:Int;
-	public var socketCount(get, never):Int;
-	inline function get_socketCount() return _socketCount;
+	override function get_socketCount() return _socketCount;
 
 	var sockets:Map<Socket, Bool>;
 	var _epoll:Epoll;
@@ -21,20 +19,22 @@ class EpollPoller implements IPoller
 
 	public function new(maxConnections:Int, maxEvents:Int)
 	{
+		super();
+
 		this.maxConnections = maxConnections;
 		sockets = new Map();
-		_epoll = new Epoll();
+		_epoll = new Epoll(maxEvents);
 		_maxEvents = maxEvents;
 		_socketCount = 0;
 	}
 
-	public function poll():Null<Array<Socket>>
+	override function poll(wait:Float):Null<Array<Socket>>
 	{
-		if (_socketCount > 0) return _epoll.wait(_maxEvents, 0);
+		if (_socketCount > 0) return _epoll.wait(wait);
 		else return null;
 	}
 
-	public function addSocket(socket:Socket):Bool
+	override public function addSocket(socket:Socket):Bool
 	{
 		if (socketCount >= maxConnections)
 			return false;
@@ -49,8 +49,9 @@ class EpollPoller implements IPoller
 		return false;
 	}
 
-	public function removeSocket(socket:Socket)
+	override public function removeSocket(socket:Socket)
 	{
+		super.removeSocket(socket);
 		if (sockets.exists(socket))
 		{
 			_epoll.unregister(socket);

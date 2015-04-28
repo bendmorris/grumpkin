@@ -1,4 +1,4 @@
-package grumpkin.poll;
+package grumpkin.reactor;
 
 import sys.net.Socket;
 #if neko
@@ -6,30 +6,31 @@ import neko.net.Poll;
 #else
 import cpp.net.Poll;
 #end
+import grumpkin.Reactor;
 
 
-class PollPoller implements IPoller
+class PollReactor extends Reactor
 {
-	public var maxConnections:Int;
-	public var socketCount(get, never):Int;
-	inline function get_socketCount() return sockets.length;
+	override function get_socketCount() return sockets.length;
 
 	var sockets:Array<Socket>;
 	var _poll:Poll;
 
 	public function new(maxConnections:Int)
 	{
+		super();
+
 		this.maxConnections = maxConnections;
 		sockets = [];
 		_poll = new Poll(maxConnections);
 	}
 
-	public function poll():Null<Array<Socket>>
+	override function poll(wait:Float):Null<Array<Socket>>
 	{
 		return _poll.poll(sockets, 0);
 	}
 
-	public function addSocket(socket:Socket):Bool
+	override public function addSocket(socket:Socket):Bool
 	{
 		if (socketCount >= maxConnections)
 			return false;
@@ -37,8 +38,9 @@ class PollPoller implements IPoller
 		return true;
 	}
 
-	public function removeSocket(socket:Socket)
+	override public function removeSocket(socket:Socket)
 	{
+		super.removeSocket(socket);
 		sockets.remove(socket);
 	}
 }

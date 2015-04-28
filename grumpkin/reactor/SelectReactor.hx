@@ -1,32 +1,31 @@
-package grumpkin.poll;
+package grumpkin.reactor;
 
 import sys.net.Socket;
+import grumpkin.Reactor;
 
 
-class SelectPoller implements IPoller
+class SelectReactor extends Reactor
 {
-	public var maxConnections:Int;
-	public var socketCount(get, never):Int;
-	inline function get_socketCount() return sockets.length;
+	override function get_socketCount() return sockets.length;
 
 	var sockets:Array<Socket>;
 
 	public function new(maxConnections:Int)
 	{
-		if (maxConnections > 1024)
-			throw "Select can only support up to 1024 connections.";
+		super();
+
 		this.maxConnections = maxConnections;
 		sockets = [];
 	}
 
-	public function poll():Null<Array<Socket>>
+	override function poll(wait:Float):Null<Array<Socket>>
 	{
 		var ready = Socket.select(sockets, null, sockets, 0);
 		if (ready == null) return null;
 		return ready.read.concat(ready.others);
 	}
 
-	public function addSocket(socket:Socket):Bool
+	override public function addSocket(socket:Socket):Bool
 	{
 		if (socketCount >= maxConnections)
 			return false;
@@ -34,8 +33,9 @@ class SelectPoller implements IPoller
 		return true;
 	}
 
-	public function removeSocket(socket:Socket)
+	override public function removeSocket(socket:Socket)
 	{
+		super.removeSocket(socket);
 		sockets.remove(socket);
 	}
 }
