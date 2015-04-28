@@ -34,6 +34,10 @@ To start, tell your protocol to listen for new connections:
     var reactor = grumpkin.Reactor.reactor;
     reactor.run();
 
+![starting the reactor](http://i.imgur.com/BnZFqSc.jpg)
+
+(At this point please warn anyone nearby: "HOLD ON, I'M STARTING THE REACTOR!!")
+
 Multiple protocols can be told to listen on different host/port combinations 
 before running the reactor. `reactor.run()` will begin the event loop, which 
 will block until the reactor is shut down.
