@@ -122,7 +122,7 @@ class Reactor
 				if (updater.update()) newUpdaters.push(updater);
 				// poll for new socket events until an updater is ready
 				var nextUpdate = updater.nextUpdate;
-				if (wait == null || nextUpdate < wait)
+				if (nextUpdate != null && (wait == null || nextUpdate < wait))
 					wait = nextUpdate;
 			}
 			// recycle updaters that are still running
