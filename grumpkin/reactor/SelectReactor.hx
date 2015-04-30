@@ -20,9 +20,9 @@ class SelectReactor extends Reactor
 
 	override function poll(wait:Float):Null<Array<Socket>>
 	{
-		var ready = Socket.select(sockets, null, sockets, 0);
+		var ready = Socket.select(sockets, null, null, 0);
 		if (ready == null) return null;
-		return ready.read.concat(ready.others);
+		return ready.read;
 	}
 
 	override public function addSocket(socket:Socket):Bool
