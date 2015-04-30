@@ -105,7 +105,7 @@ class Reactor
 		init();
 
 		running = true;
-		var wait:Float = 0;
+		var wait:Null<Float> = null;
 		while (running)
 		{
 			var startTime = haxe.Timer.stamp();
@@ -113,30 +113,34 @@ class Reactor
 			// check for new messages, connections or disconnections
 			processEvents(wait);
 
+			// update all attached updaters
 			var updater:IUpdater;
 			var newUpdaters = recycledUpdaters;
-			var nextEvent:Null<Float> = 0;
+			wait = null;
 			while ((updater = updaters.pop(false)) != null)
 			{
 				if (updater.update()) newUpdaters.push(updater);
+				// poll for new socket events until an updater is ready
 				var nextUpdate = updater.nextUpdate;
-				if (nextEvent == null || nextUpdate < nextEvent)
-					nextEvent = nextUpdate;
+				if (wait == null || nextUpdate < wait)
+					wait = nextUpdate;
 			}
+			// recycle updaters that are still running
 			recycledUpdaters = updaters;
 			updaters = newUpdaters;
 
-			if (nextEvent != null)
-				wait = nextEvent;
-
+			// limit maximum loop frequency
 			if (maxUpdatesPerSecond > 0)
 			{
 				var elapsed = haxe.Timer.stamp() - startTime;
 				if (elapsed < 1 / maxUpdatesPerSecond)
-					wait = 1 / maxUpdatesPerSecond - elapsed;
+					wait = Math.max(wait == null ? 0 : wait,
+						1 / maxUpdatesPerSecond - elapsed);
 			}
 		}
 	}
+
+	public function stop() running = false;
 
 	/**
 	 * Poll for new connections or messages.
@@ -155,6 +159,7 @@ class Reactor
 
 					if (listeners.exists(s))
 					{
+						// this is a listening socket
 						for (i in 0 ... maxPendingConnections)
 						{
 							if (socketCount >= maxConnections)
@@ -183,6 +188,7 @@ class Reactor
 					}
 					else
 					{
+						// this is a connected client
 						try
 						{
 							// received data from client

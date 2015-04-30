@@ -12,13 +12,16 @@ class Test extends Protocol<TestClient, String>
 {
 	static function main()
 	{
-		//var reactor = new grumpkin.poll.EpollPoller(1024, 512);
-		//reactor.maxUpdatesPerSecond = 6000;
-		//reactor.maxPendingConnections = 600;
+		//var reactor = new grumpkin.reactor.SelectReactor(1024);
+		//var reactor = new grumpkin.reactor.PollReactor(1024);
+		var reactor = new grumpkin.reactor.EpollReactor(1024, 1024);
+		reactor.maxPendingConnections = 128;
+
 		var protocol = new Test();
 
 		protocol.listen("localhost", 12345);
-		grumpkin.Reactor.reactor.run();
+		reactor.callLater(reactor.stop, 20);
+		reactor.run();
 	}
 
 	override public function listen(host:String, port:Int)

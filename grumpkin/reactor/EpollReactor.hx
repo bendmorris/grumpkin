@@ -17,7 +17,7 @@ class EpollReactor extends Reactor
 	var _maxEvents:Int;
 	var _socketCount:Int;
 
-	public function new(maxConnections:Int, maxEvents:Int)
+	public function new(maxConnections:Int, ?maxEvents:Int=128)
 	{
 		super();
 
