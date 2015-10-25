@@ -12,7 +12,7 @@ class LoopingCall implements IUpdater
 	public var stopped:Bool = false;
 
 	public var nextUpdate(get, never):Null<Float>;
-	function get_nextUpdate() return seconds - elapsed;
+	function get_nextUpdate():Null<Float> return seconds - elapsed;
 
 	public function new(f, seconds, ?maxLoops=0)
 	{

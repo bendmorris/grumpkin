@@ -18,9 +18,9 @@ class SelectReactor extends Reactor
 		sockets = [];
 	}
 
-	override function poll(wait:Float):Null<Array<Socket>>
+	override function poll(?wait:Float):Null<Array<Socket>>
 	{
-		var ready = Socket.select(sockets, null, null, 0);
+		var ready = Socket.select(sockets, null, null, wait);
 		if (ready == null) return null;
 		return ready.read;
 	}

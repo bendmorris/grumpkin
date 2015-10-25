@@ -28,7 +28,7 @@ class EpollReactor extends Reactor
 		_socketCount = 0;
 	}
 
-	override function poll(wait:Float):Null<Array<Socket>>
+	override function poll(?wait:Float):Null<Array<Socket>>
 	{
 		if (_socketCount > 0) return _epoll.wait(wait);
 		else return null;

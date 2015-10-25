@@ -25,9 +25,9 @@ class PollReactor extends Reactor
 		_poll = new Poll(maxConnections);
 	}
 
-	override function poll(wait:Float):Null<Array<Socket>>
+	override function poll(?wait:Float):Null<Array<Socket>>
 	{
-		return _poll.poll(sockets, 0);
+		return _poll.poll(sockets, wait == null ? 0 : wait);
 	}
 
 	override public function addSocket(socket:Socket):Bool

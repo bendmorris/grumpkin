@@ -8,10 +8,17 @@ import sys.net.Socket;
 import neko.vm.Deque;
 import neko.vm.Thread;
 import neko.vm.Mutex;
-#else
+#elseif cpp
 import cpp.vm.Deque;
 import cpp.vm.Thread;
 import cpp.vm.Mutex;
+
+@:headerCode("#include <csignal>")
+@:cppFileCode("
+void _handler(int sig) {
+	grumpkin::Reactor_obj::_reactor->stop();
+}
+")
 #end
 
 
@@ -53,6 +60,8 @@ class Reactor
 	var updaters:Deque<IUpdater>;
 	var recycledUpdaters:Deque<IUpdater>;
 
+	var lastUpdate:Float = 0;
+
 	// this is an abstract class; use one of the grumpkin.reactor.* classes that
 	// extends it instead
 	function new()
@@ -66,13 +75,15 @@ class Reactor
 		connectWait = 0.01;
 		maxPendingConnections = 64;
 		errorOutput = Sys.stderr();
-		maxUpdatesPerSecond = 0;
+		maxUpdatesPerSecond = 300;
 		maxWorkCyclesPerSecond = 60;
 
 		listeners = new Map();
 		clients = new Map();
 		updaters = new Deque();
 		recycledUpdaters = new Deque();
+
+		lastUpdate = haxe.Timer.stamp();
 	}
 
 	public function init()
@@ -102,6 +113,9 @@ class Reactor
 	 */
 	public function run()
 	{
+#if cpp
+		untyped __cpp__("signal(SIGINT, &_handler);");
+#end
 		init();
 
 		running = true;
@@ -123,29 +137,30 @@ class Reactor
 				// poll for new socket events until an updater is ready
 				var nextUpdate = updater.nextUpdate;
 				if (nextUpdate != null && (wait == null || nextUpdate < wait))
-					wait = nextUpdate;
+					wait = Math.max(nextUpdate, 1 / maxUpdatesPerSecond);
 			}
 			// recycle updaters that are still running
 			recycledUpdaters = updaters;
 			updaters = newUpdaters;
 
-			// limit maximum loop frequency
-			if (maxUpdatesPerSecond > 0)
-			{
-				var elapsed = haxe.Timer.stamp() - startTime;
-				if (elapsed < 1 / maxUpdatesPerSecond)
-					wait = Math.max(wait == null ? 0 : wait,
-						1 / maxUpdatesPerSecond - elapsed);
-			}
+			lastUpdate = startTime;
 		}
+
+		onClose();
 	}
 
 	public function stop() running = false;
 
+	public function addClient(socket:Socket, protocol:IProtocol)
+	{
+		clients[socket] = protocol;
+		addSocket(socket);
+	}
+
 	/**
 	 * Poll for new connections or messages.
 	 */
-	function processEvents(wait:Float)
+	function processEvents(wait:Null<Float>)
 	{
 		try
 		{
@@ -172,8 +187,7 @@ class Reactor
 								var added = listeners[s].addClient(sock);
 								if (added)
 								{
-									clients[sock] = listeners[s];
-									addSocket(sock);
+									addClient(sock, listeners[s]);
 								}
 								else
 								{
@@ -213,7 +227,11 @@ class Reactor
 		}
 	}
 
-	function poll(wait:Float):Null<Array<Socket>>
+	/**
+	 * Wait up to `wait` seconds, then return an array of sockets ready to read
+	 * or accept connections from, or null if no result. Should be overridden.
+	 */
+	function poll(?wait:Float):Null<Array<Socket>>
 	{
 		Sys.sleep(wait);
 		return null;
@@ -223,7 +241,10 @@ class Reactor
 
 	public function removeSocket(s:Socket)
 	{
-		clients.remove(s);
+		if (clients.exists(s))
+		{
+			clients.remove(s);
+		}
 	}
 
 	/**
@@ -378,7 +399,7 @@ class Reactor
 		}
 	}
 
-	function logError(e:Dynamic)
+	public function logError(e:Dynamic)
 	{
 		var stack = haxe.CallStack.exceptionStack();
 		onError(e, stack);
@@ -391,11 +412,16 @@ class Reactor
 	 */
 	public dynamic function onError(e:Dynamic, stack)
 	{
-		var estr = try Std.string(e) catch( e2 : Dynamic ) "???" + try "["+Std.string(e2)+"]" catch( e : Dynamic ) "";
-		errorOutput.writeString( estr + "\n" + haxe.CallStack.toString(stack) );
+		var estr = try Std.string(e) catch (e2:Dynamic) "???" + try "[" + Std.string(e2) + "]" catch(e:Dynamic) "";
+		errorOutput.writeString(estr + "\n" + haxe.CallStack.toString(stack) + "\n");
 		errorOutput.flush();
 #if debug
 		throw e;
 #end
 	}
+
+	/**
+	 * Called before exiting.
+	 */
+	public dynamic function onClose() {}
 }
