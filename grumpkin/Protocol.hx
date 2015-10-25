@@ -5,13 +5,6 @@ import sys.net.Socket;
 import sys.net.Host;
 
 
-typedef ClientInfo<Client> = {
-	var client:Client;
-	var sock:Socket;
-	var buf:Bytes;
-	var bufpos:Int;
-}
-
 class Protocol<Client, Message> implements IProtocol
 {
 	public var running:Bool = false;
@@ -46,6 +39,12 @@ class Protocol<Client, Message> implements IProtocol
 		Reactor.reactor.listen(this);
 	}
 
+	public function write(socket:Socket, data:Bytes, pos:Int, length:Int)
+	{
+		socket.output.writeFullBytes(data, pos, length);
+		socket.output.flush();
+	}
+
 	/**
 	 * Create a new ClientInfo for a connected client.
 	 */
@@ -61,9 +60,10 @@ class Protocol<Client, Message> implements IProtocol
 
 		var clientInfo:ClientInfo<Client> = {
 			client: client,
-			sock: s,
+			socket: s,
 			buf: Bytes.alloc(initialBufferSize),
 			bufpos: 0,
+			custom: null,
 		};
 		s.custom = clientInfo;
 		return true;
@@ -94,7 +94,7 @@ class Protocol<Client, Message> implements IProtocol
 			available = newsize - c.bufpos;
 		}
 
-		var bytes = c.sock.input.readBytes(c.buf, c.bufpos, available);
+		var bytes = c.socket.input.readBytes(c.buf, c.bufpos, available);
 		var pos = 0;
 		var len = c.bufpos + bytes;
 
@@ -108,7 +108,9 @@ class Protocol<Client, Message> implements IProtocol
 			clientMessage(c.client, m.msg);
 		}
 		if (pos > 0)
-			c.buf.blit(0,c.buf,pos,len);
+		{
+			c.buf.blit(0, c.buf, pos, len);
+		}
 		c.bufpos = len;
 	}
 
@@ -125,13 +127,13 @@ class Protocol<Client, Message> implements IProtocol
 	 * if the new client can be created; if this method returns null, the
 	 * connection will be refused.
 	 */
-	public dynamic function clientConnected(s:Socket):Client
+	public function clientConnected(s:Socket):Client
 		return null;
 
 	/**
 	 * Called when a client is disconnected.
 	 */
-	public dynamic function clientDisconnected(c:Client) {}
+	public function clientDisconnected(c:Client) {}
 
 	/**
 	 * Called when data is ready to be read; this method should read from the
@@ -140,7 +142,7 @@ class Protocol<Client, Message> implements IProtocol
 	 * clientMessage will be called on the resulting message. If msg is null,
 	 * the data will remain in the buffer until more is received.
 	 */
-	public dynamic function readClientMessage(c:Client, buf:Bytes, pos:Int, len:Int):{msg:Message, bytes:Int}
+	public function readClientMessage(c:Client, buf:Bytes, pos:Int, len:Int):{msg:Message, bytes:Int}
 	{
 		return {
 			msg : null,
@@ -151,5 +153,10 @@ class Protocol<Client, Message> implements IProtocol
 	/**
 	 * Process a complete message from the client.
 	 */
-	public dynamic function clientMessage(c:Client, msg:Message) {}
+	public function clientMessage(c:Client, msg:Message) {}
+
+	/**
+	 * Called when the protocol is shut down.
+	 */
+	public function shutdown() {}
 }

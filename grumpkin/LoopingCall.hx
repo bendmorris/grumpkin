@@ -33,13 +33,13 @@ class LoopingCall implements IUpdater
 		if (stopped) return false;
 
 		var currentTime = haxe.Timer.stamp();
-		if (seconds > 0) elapsed += currentTime - lastCheck;
+		this.elapsed += (currentTime - lastCheck);
 		lastCheck = currentTime;
 
-		if (elapsed >= seconds)
+		if (this.elapsed >= seconds)
 		{
 			f();
-			elapsed -= seconds;
+			this.elapsed -= seconds;
 
 			if (maxLoops > 0)
 			{
