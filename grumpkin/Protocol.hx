@@ -41,8 +41,15 @@ class Protocol<Client, Message> implements IProtocol
 
 	public function write(socket:Socket, data:Bytes, pos:Int, length:Int)
 	{
-		socket.output.writeFullBytes(data, pos, length);
-		socket.output.flush();
+		try
+		{
+			socket.output.writeFullBytes(data, pos, length);
+			socket.output.flush();
+		}
+		catch (e:Dynamic)
+		{
+			socketWriteFail(socket);
+		}
 	}
 
 	/**
@@ -154,6 +161,14 @@ class Protocol<Client, Message> implements IProtocol
 	 * Process a complete message from the client.
 	 */
 	public function clientMessage(c:Client, msg:Message) {}
+
+	/**
+	 * Called when a socket write fails.
+	 */
+	public function socketWriteFail(socket:Socket)
+	{
+		Reactor.reactor.stopClient(socket);
+	}
 
 	/**
 	 * Called when the protocol is shut down.

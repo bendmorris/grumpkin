@@ -229,23 +229,30 @@ class WebSocketProtocol<Client, Message> extends Protocol<Client, Message>
 
 	override public function write(socket:Socket, data:Bytes, pos:Int, length:Int)
 	{
-		socket.output.writeByte(130);
-		if (length <= 125)
+		try
 		{
-			socket.output.writeByte(length);
+			socket.output.writeByte(130);
+			if (length <= 125)
+			{
+				socket.output.writeByte(length);
+			}
+			else if (length < 0x10000)
+			{
+				socket.output.writeByte(126);
+				socket.output.writeByte((length>>8) & 0xff);
+				socket.output.writeByte(length & 0xff);
+			}
+			else
+			{
+				throw "WebSockets message too big!";
+			}
+	
+			socket.output.writeFullBytes(data, pos, length);
+			socket.output.flush();
 		}
-		else if (length < 0x10000)
+		catch (e:Dynamic)
 		{
-			socket.output.writeByte(126);
-			socket.output.writeByte((length>>8) & 0xff);
-			socket.output.writeByte(length & 0xff);
+			socketWriteFail(socket);
 		}
-		else
-		{
-			throw "WebSockets message too big!";
-		}
-
-		socket.output.writeFullBytes(data, pos, length);
-		socket.output.flush();
 	}
 }
