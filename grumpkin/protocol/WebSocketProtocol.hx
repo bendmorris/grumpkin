@@ -102,7 +102,7 @@ class WebSocketProtocol<Client, Message> extends Protocol<Client, Message>
 			len -= m.bytes;
 			clientMessage(c.client, m.msg);
 		}
-		if (pos > 0)
+		if (pos > 0 && len > 0)
 		{
 			c.buf.blit(0, c.buf, pos, len);
 		}
@@ -175,11 +175,11 @@ class WebSocketProtocol<Client, Message> extends Protocol<Client, Message>
 
 	function readWebSocketMessage(c:Client, buf:Bytes, pos:Int, len:Int):MessageInfo<Message>
 	{
-		var opcode = buf.get(0);
-		var msgLength = buf.get(1);
+		var opcode = buf.get(pos+0);
+		var msgLength = buf.get(pos+1);
 
 		var final = opcode & 0x80 != 0;
-		opcode = opcode & 0x0F;
+		opcode &= 0x0F;
 		var mask = msgLength >> 7 == 1;
 		msgLength = msgLength & 0x7F;
 
@@ -188,26 +188,26 @@ class WebSocketProtocol<Client, Message> extends Protocol<Client, Message>
 		{
 			if (len < 4) return null;
 			skip += 2;
-			msgLength = ((buf.get(2) & 0xFF) << 8) | (buf.get(3) & 0xFF);
+			msgLength = ((buf.get(pos+2) & 0xFF) << 8) | (buf.get(pos+3) & 0xFF);
 		}
 		else if (msgLength > 126)
 		{
 			if (len < 6) return null;
 			skip += 8;
-			msgLength = (buf.get(2) << 24) | (buf.get(3) << 16) | (buf.get(4) << 8) | buf.get(5);
+			msgLength = (buf.get(pos+2) << 24) | (buf.get(pos+3) << 16) | (buf.get(pos+4) << 8) | buf.get(pos+5);
 		}
 
-		if (len < skip + msgLength)
+		if (len < (mask ? (skip + 4) : skip) + msgLength)
 		{
 			return null;
 		}
 
-		var msgData:Bytes;
+		var msgData:Bytes, msgPos:Int = 0;
 		if (mask)
 		{
-			var maskKey = buf.sub(skip, 4);
+			var maskKey = buf.sub(pos+skip, 4);
 			skip += 4;
-			msgData = buf.sub(skip, msgLength);
+			msgData = buf.sub(pos+skip, msgLength);
 			if (msgData.length < msgLength)
 			{
 				return null;
@@ -219,12 +219,12 @@ class WebSocketProtocol<Client, Message> extends Protocol<Client, Message>
 		}
 		else
 		{
-			msgData = buf.sub(skip, msgLength);
+			msgData = buf;
+			msgPos = pos+skip;
 		}
 
-		var m = readClientMessage(c, msgData, 0, msgLength);
-		if (m == null) return null;
-		return {msg: m.msg, bytes: skip + msgLength};
+		var m = readClientMessage(c, msgData, msgPos, msgLength);
+		return {msg: m == null ? null : m.msg, bytes: skip + msgLength};
 	}
 
 	override public function write(socket:Socket, data:Bytes, pos:Int, length:Int)

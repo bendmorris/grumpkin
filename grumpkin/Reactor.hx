@@ -130,14 +130,14 @@ class Reactor
 			// update all attached updaters
 			var updater:IUpdater;
 			var newUpdaters = recycledUpdaters;
-			wait = null;
+			wait = 1 / maxUpdatesPerSecond;
 			while ((updater = updaters.pop(false)) != null)
 			{
 				if (updater.update()) newUpdaters.push(updater);
 				// poll for new socket events until an updater is ready
 				var nextUpdate = updater.nextUpdate;
 				if (nextUpdate != null && (wait == null || nextUpdate < wait))
-					wait = Math.max(nextUpdate, 1 / maxUpdatesPerSecond);
+					wait = nextUpdate;
 			}
 			// recycle updaters that are still running
 			recycledUpdaters = updaters;
@@ -212,7 +212,7 @@ class Reactor
 						catch (e:Dynamic)
 						{
 							// client disconnected
-							if (!Std.is(e, Eof) && !Std.is(e, Error))
+							if (!Std.is(e, Eof))
 								logError(e);
 
 							stopClient(s);
